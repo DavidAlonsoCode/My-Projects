@@ -1,0 +1,25 @@
+digraph RemoveComments {
+    rankdir=LR;
+    size="8,5"
+    node [shape = circle];
+
+    Código [label="Código \n (Leo caracter)"];
+    Slash [label="Slash"];
+    ComentarioUnaLinea [label="ComentarioUnaLinea"];
+    ComentarioMultiLinea_Inicio [label="/*"];
+    ComentarioMultiLinea_Cuerpo [label="Dentro de /*"];
+    ComentarioMultiLinea_Fin [label="*/"];
+
+    Código -> Slash [label="/"];
+    Slash -> ComentarioUnaLinea [label="/"];
+    Slash -> ComentarioMultiLinea_Inicio [label="*"];
+    Slash -> Código [label="Caracter distinto a (* or /) -> ε"];
+    
+    ComentarioUnaLinea -> Código [label="\\n -> Output space"];
+    ComentarioUnaLinea -> ComentarioUnaLinea [label="Cualquier caracter excepto\n secuencia \\n -> ε"];
+
+    ComentarioMultiLinea_Inicio -> ComentarioMultiLinea_Cuerpo;
+    ComentarioMultiLinea_Cuerpo -> ComentarioMultiLinea_Fin [label="*/"];
+    ComentarioMultiLinea_Fin -> Código [label="Output space"];
+    ComentarioMultiLinea_Cuerpo -> ComentarioMultiLinea_Cuerpo [label="Cualquier caracter excepto\n secuencia */ -> ε"];
+}

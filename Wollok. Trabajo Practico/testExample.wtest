@@ -1,0 +1,239 @@
+import example.*
+
+/*------------------ GANDALF ------------------*/
+
+const baculo = new Baculo(poder=400)
+const gandalf = new Maiar(vidaActual=0, armas=[new Espada(origen=elfica, multiplicadorDePoder=10), baculo])
+
+describe "Poder de Gandalf" {
+  test "Gandalf con toda la vida y todas sus armas tiene 2900 de poder" {
+    gandalf.vidaActual(100)
+    assert.equals(2900, gandalf.poder())
+  }
+
+  test "Gandalf sin armas y con 80 de vida tiene 1200 de poder" {
+    gandalf.vidaActual(80)
+    gandalf.eliminarArmas()
+    assert.equals(1200, gandalf.poder())
+  }
+  
+  test "Gandalf con 5 de vida y su báculo tiene 2300 de poder" {
+    gandalf.vidaActual(5)
+    gandalf.eliminarArmas()
+    gandalf.agregarArma(baculo)
+    assert.equals(2300, gandalf.poder())
+  }
+
+  test "Gandalf con 30 de vida, su báculo y su espada pero versión enana tiene 1650 de poder" {
+    gandalf.vidaActual(30)
+    gandalf.eliminarArmas()
+    gandalf.agregarArma(baculo)
+    gandalf.agregarArma(new Espada(origen=enana, multiplicadorDePoder=10))
+    assert.equals(1650, gandalf.poder())
+  }
+}
+
+/*------------------- Recorriendo la tierra media -------------------*/
+describe "Recorriendo la tierra media" {
+  test "Gandalf full vida y con sus armas, puede atravesar Lebennin" {
+    gandalf.vidaActual(100)
+    gandalf.agregarArma(new Espada(origen=enana, multiplicadorDePoder=10))
+    assert.equals(true, gandalf.puedeAtravesar(lebennin))
+  }
+  test "Gandalf sin armas y con 11 de vida puede atravesar Lebennin" {
+    gandalf.vidaActual(11)
+    gandalf.eliminarArmas()
+    assert.equals(false, gandalf.puedeAtravesar(lebennin))
+  }
+  test "Gandalf sin armas y con 11 de vida puede atravesar Minas Tirith" {
+    gandalf.vidaActual(11)
+    gandalf.eliminarArmas()
+    assert.equals(false, gandalf.puedeAtravesar(minasTirith))
+  }
+  test "Gandalf full vida y con sus armas, puede atravesar el camino compuesto por Lebennin y Minas Tirith" {
+    gandalf.vidaActual(100)
+    caminoGondor.agregarZona(lebennin)
+    caminoGondor.agregarZona(minasTirith)
+    assert.equals(true, gandalf.puedeAtravesarCamino(caminoGondor))
+  }
+  test "Gandalf full vida y con sus armas, atraviesa el camino compuesto por Lebennin y Minas Tirith" {
+    gandalf.vidaActual(100)
+    caminoGondor.agregarZona(lebennin)
+    caminoGondor.agregarZona(minasTirith)
+    gandalf.atravesarCamino(caminoGondor)
+    assert.equals(90, gandalf.vidaActual())
+  }
+}
+
+/*------------------- Tom Bombadil -------------------*/
+describe "Tom Bombadil" {
+  test "Tom puede atravesar atravesar Lebennin" {
+    assert.equals(true,tomBombadil.puedeAtravesar(lebennin))
+  }
+  test "Tom atraviesa el camino que pasa por Gondor antes mencionado"{
+    const vidaAlInicioDelCamino = tomBombadil.cantidadDeVida()
+    caminoGondor.agregarZona(lebennin)
+    caminoGondor.agregarZona(minasTirith)
+    tomBombadil.puedeAtravesarCamino(caminoGondor)
+    assert.equals(vidaAlInicioDelCamino, tomBombadil.cantidadDeVida())
+  }
+}
+
+/*------------------ ARSENAL ------------------*/
+describe "Arsenal" {
+  
+  const espada1 = new Espada(
+    multiplicadorDePoder = 15,
+    origen = enana
+  )
+  const daga1 = new Daga(
+    multiplicadorDePoder = 15,
+    origen = enana
+  )
+  const hacha1 = new Hacha(
+    longitudMango = 50,
+    pesoHojaMetalica = 5
+  )
+  const arco1 = new Arco(
+    longitud = 110
+  )
+  
+  test "poder de Espada con multiplicador de 15 y de origen Enano, es igual a 300" {
+    assert.equals(300,espada1.poder())
+  }
+  test "poder de Daga con multiplicador de 15 y origen Enano, es igual a 150" {
+    assert.equals(150,daga1.poder())
+  }
+  test "poder de Hacha con mango de 50 cm, con una hoja de 5kg, es igual a 250" {
+    assert.equals(250,hacha1.poder())
+  }
+  test "poder de Arco con longitud de 110cm, es igual a 440" {
+    assert.equals(440,arco1.poder())
+  }
+  test "poder del arco anterior al Modificar la tensión a 35kg, es igual a 385" {
+    arco1.tension(35)
+    assert.equals(385,arco1.poder())
+  }
+}
+
+
+/*------------------ SOBRE LOS GUERREROS ------------------*/
+
+const arco110 = new Arco(longitud=110)
+
+describe "Sobre los guerreros" {
+
+  test "Poder de Frodo sin ítems" {
+    const frodo = new Hobbit(vidaActual=50, armas=[new Espada(origen=elfica, multiplicadorDePoder=8)], cantidadDeItems=0)
+    assert.equals(290,frodo.poder())
+  }
+
+  test "Poder de Gimli" {
+    const hacha70x5 = new Hacha(longitudMango=70, pesoHojaMetalica=5)   
+    const gimli = new Enano(vidaActual=75, armas=[hacha70x5, hacha70x5], factorDePoder=3)
+    assert.equals(2175,gimli.poder())
+  }
+
+  test "Poder de Légolas" {
+    const legolas = new Elfo(vidaActual=80, armas=[arco110, new Espada(origen=elfica, multiplicadorDePoder=12)], destrezaPropia=1)
+
+    assert.equals(2480,legolas.poder())
+  }
+
+  test "Poder de Aragorn" {
+    const aragorn = new Humano(vidaActual=85, armas=[new Espada(origen=elfica, multiplicadorDePoder=18), new Daga(origen=enana, multiplicadorDePoder=10)], limitadorDePoder=20)
+    assert.equals(2720,aragorn.poder())
+  }
+  
+  test "Poder de Gandalf" {
+    gandalf.vidaActual(100)
+    assert.equals(2900,gandalf.poder())
+  }
+
+  test "Poder de Gandalf con 9 de vida y todas sus armas" {
+    gandalf.vidaActual(9)
+    assert.equals(4100, gandalf.poder())
+  } 
+
+  test "Poder de Légolas que obtiene medio punto de destreza propia" {
+    const legolas = new Elfo(vidaActual=80, armas=[arco110, new Espada(origen=elfica, multiplicadorDePoder=12)], destrezaPropia=0.5)
+    assert.equals(2080, legolas.poder())
+  }
+}
+
+/*------------------ Los Caminos de la Tierra Media ------------------*/
+
+describe "Tests de Caminos"{
+  const legolas = new Elfo(vidaActual=80, armas=[arco110, new Espada(origen=elfica, multiplicadorDePoder=12)], destrezaPropia=1,items = ["Lembas","Lembas","Lembas","Lembas","Lembas"])
+  const aragorn = new Humano(vidaActual=85, armas=[new Espada(origen=elfica, multiplicadorDePoder=18), new Daga(origen=enana, multiplicadorDePoder=10)], limitadorDePoder=20, items = ["Lembas","Lembas","Lembas","Lembas","Lembas"])
+  const grupo = new Grupo(guerreros=[legolas,aragorn])
+  const camino = new Camino( zonas=[edoras,belfalas,minasTirith] )
+  const camino2 = new Camino( zonas=[bosqueDeFangorn,edoras,estemnet] )
+
+  test "Un grupo no puede pasar por una zona por requerimiento de ítem" {
+    assert.equals(false, estemnet.cumpleRequerimientoItem(grupo))
+  }
+  test "Un grupo no puede pasar por una zona por requerimiento de guerrero." {
+    assert.equals(false, lebennin.cumpleRequerimientoDeGuerrero(grupo))
+  }
+  test "Un grupo puede pasar por una zona" {
+    assert.equals(true, belfalas.puedePasarPorZona(grupo))
+  }
+  test "Un grupo no puede atravesar un camino" {
+    assert.equals(false, camino2.puedePasar(grupo))
+  }
+  test "Un grupo puede atravesar un camino" {
+    assert.equals(true, camino.puedePasar(grupo))
+  }
+}
+
+/*------------------ Tests de Efecto de Zonas ------------------*/
+describe "Tests de Efecto de Zonas"{
+  const espada = new Espada(origen=elfica, multiplicadorDePoder=12)
+  const legolas = new Elfo(vidaActual=80, armas=[espada], destrezaPropia=1,items = ["Lembas","capa elfica"])
+  const aragorn = new Humano(vidaActual=85, armas=[], limitadorDePoder=20, items = ["Lembas","vino caliente"])
+  const grupo = new Grupo(guerreros=[legolas,aragorn])
+
+  test "Un grupo que no puede atravesar una zona, produce un error al intentar pasar."{
+    assert.throwsExceptionLike( new NoSePuedePasarPorZonaException(message = "Error al pasar por zona"),{grupo.atravesarZona(minasTirith)})
+  }
+  test "Un integrante sufre las consecuencias de pérdida de ítem, al atravesar una zona con tal efecto." {
+    const legolas2 = new Elfo(vidaActual=80, armas=[espada], destrezaPropia=1,items = ["Lembas","capa elfica"])
+    grupo.atravesarZona(bosqueDeFangorn) //se le quita la capa elfica a legolas
+    assert.notEquals(legolas.items(),legolas2.items())
+  }
+  test "Un integrante no pierde ningún ítem, debido a que no lo posee." {
+    const aragorn2 = new Humano(vidaActual=85, armas=[], limitadorDePoder=20, items = ["Lembas","vino caliente"])
+    grupo.atravesarZona(bosqueDeFangorn) //aragorn no tiene capa elfica
+    assert.equals(aragorn.items(), aragorn2.items())
+  }
+  test "Modelar a Boromir, un guerrero humano que tiene 20 de vida, y la Zona de Los Prados de Parth Galen,
+    que tiene un efecto de pérdida de 21 puntos de vida y ninguna restricción. Boromir, queda fuera de
+    combate luego de atravesar Parth Galen." {
+    const boromir = new Humano(limitadorDePoder=1,vidaActual = 20, armas=[],items=[])
+    const grupo2 = new Grupo(guerreros = [legolas,boromir])
+    assert.throwsExceptionLike( new GuerreroFueraDeCombate(message = "Guerrero fuera de Combate"),{grupo2.atravesarZona(losPradosDeParthGalen)})
+  }
+}
+
+/*------------------ Más sobre caminos ------------------*/
+describe "Más sobre caminos"{
+  const caminoInvalido = new Camino(zonas = [bosqueDeFangorn, belfalas, minasTirith])
+
+  method initialize() {
+    belfalas.agregarLimite(lebennin)
+    belfalas.agregarLimite(lamedon)
+    bosqueDeFangorn.agregarLimite(edoras)
+    bosqueDeFangorn.agregarLimite(estemnet)
+    estemnet.agregarLimite(edoras)
+    lamedon.agregarLimite(edoras)
+    lebennin.agregarLimite(minasTirith)
+  }
+
+  test "Un grupo que quiere atravesar un camino inválido debe producir un error."{
+    assert.throwsExceptionLike(new ZonasNoLimitrofesException(message = "Al menos una zona no es limítrofe de las otras"),{ caminoInvalido.sonZonasLimitrofes()})
+  }
+  test " Las regiones que atraviesan un camino dado." {
+    assert.equals(["Gondor","Rohan"], caminito.regionesQueAtraviesa())
+  }
+}

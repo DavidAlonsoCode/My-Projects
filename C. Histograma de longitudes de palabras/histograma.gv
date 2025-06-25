@@ -1,0 +1,9 @@
+digraph Histograma {
+    rankdir=LR;
+    node [shape = circle];
+    OUT -> IN [label = "NoBlanco/++wl"];
+    IN -> OUT [label = "Blanco/(++len[wl-1])^(wl=0)"];
+    OUT -> OUT [label = "Blanco/ε"];
+    IN -> IN [label = "NoBlanco/++wl"];
+}
+
