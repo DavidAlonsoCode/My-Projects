@@ -35,7 +35,7 @@ t_proceso_actual* recibir_paquete_proceso_cpu(int conexion);
 
 t_instruccion fetch_decode_execute(t_proceso_actual* proceso);
 
-uint32_t check_interrupt(int conexion);
+int check_interrupt(int conexion);
 
 void enviar_dump_a_kernel(int conexion, uint32_t pid, uint32_t pc, uint32_t codOp);
 
@@ -56,5 +56,7 @@ void ejecutar_init_proc(t_proceso_actual* proceso, char* archivo, uint32_t taman
 void ejecutar_dump_memory(t_proceso_actual* proceso);
 
 void ejecutar_exit(t_proceso_actual* proceso);
+
+void log_estado_caches(uint32_t pid);
 
 #endif

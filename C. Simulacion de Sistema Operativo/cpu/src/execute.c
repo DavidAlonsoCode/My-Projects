@@ -159,6 +159,9 @@ void enviar_paquete_proceso_kernel_segun(int conexion, uint32_t pid, uint32_t pc
 
     int offset = 0;
     memcpy(paquete->buffer->stream + offset, &pid, sizeof(uint32_t));
+    offset+=sizeof(uint32_t);
+    memcpy(paquete->buffer->stream + offset, &pc, sizeof(uint32_t));
+    
     enviar_paquete(paquete, conexion);
     eliminar_paquete(paquete);
 }
@@ -202,21 +205,6 @@ char* ejecutar_read(t_proceso_actual* proceso, uint32_t direccion, uint32_t tama
     return respuesta; // Retorna la cadena leida desde memoria
 }
 
-void ejecutar_write_en_cache(t_entrada_cache* entrada_cache, char* datos) {
-    // Actualiza el contenido de la entrada de cache con los nuevos datos
-    entrada_cache->contenido = datos; // Asignar el contenido de la pagina
-    entrada_cache->bit_referencia = 1; // Marcar como referenciada
-    entrada_cache->bit_modificado = 1; // Marcar como modificado
-}
-
-char* ejecutar_read_en_cache(t_entrada_cache* entrada_cache, uint32_t tamanio) {
-    // Retorna los datos leidos desde la cache
-    char* datos = malloc(tamanio + 1); // +1 para el terminador \0
-    memcpy(datos, entrada_cache->contenido, tamanio);
-    datos[tamanio] = '\0'; // Asegurar que la cadena este terminada en \0
-    return datos;
-}
-
 void ejecutar_goto(t_proceso_actual* proceso, uint32_t valor) {
     // Modificar valor del pc 
     proceso->pc = valor;
@@ -233,7 +221,6 @@ void ejecutar_io(t_proceso_actual* proceso, char* dispositivo, uint32_t tiempo) 
 
 void ejecutar_init_proc(t_proceso_actual* proceso, char* archivo, uint32_t tamanio) {
     uint32_t pid = proceso->pid;
-    uint32_t pc = proceso->pc;
     int conexion_kernel = proceso->fd_conexion_kernel; // Se obtiene el fd de conexion del kernel
 
     enviar_init_proc(conexion_kernel, pid, archivo, tamanio);

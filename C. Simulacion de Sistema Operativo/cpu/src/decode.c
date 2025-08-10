@@ -4,8 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_SIZE_CADENA 30
-
 // Estas estructuras contienen la tabla de instrucciones para usarse con bsearch
 typedef struct {
     char* cadena;
@@ -33,14 +31,14 @@ int comparar_instrucciones(const void* a, const void* b) {
 
 // Dado una cadena de chars, el ptr de la cadena y un index devuelve una cadena hasta un espacio
 char* obtener_cadena(char* instruccion, char* ptr, int* index) {
-    char* cadena = malloc(MAX_SIZE_CADENA);
     int indexInicial = *index;
 
     while (isalpha(instruccion[*index]) || instruccion[*index] == '_') {
         (*index)++;
     }
 
-    int tam_cadena = *index - indexInicial; 
+    int tam_cadena = *index - indexInicial;
+    char* cadena = malloc(tam_cadena + 1); // + para el /0 
     strncpy(cadena, ptr, tam_cadena);
     cadena[tam_cadena] = '\0';
 
@@ -49,14 +47,14 @@ char* obtener_cadena(char* instruccion, char* ptr, int* index) {
 
 // Dado una cadena de chars, el ptr de la cadena y un index devuelve una cadena hasta un espacio
 char* obtener_alfanumerico(char* instruccion, char* ptr, int* index) {
-    char* cadena = malloc(MAX_SIZE_CADENA);
     int indexInicial = *index;
 
     while (isdigit(instruccion[*index]) || isalpha(instruccion[*index]) || instruccion[*index] == '_') {
         (*index)++;
     }
 
-    int tam_cadena = *index - indexInicial; 
+    int tam_cadena = *index - indexInicial;
+    char* cadena = malloc(tam_cadena + 1); // + para el /0
     strncpy(cadena, ptr, tam_cadena);
     cadena[tam_cadena] = '\0';
 
@@ -65,18 +63,20 @@ char* obtener_alfanumerico(char* instruccion, char* ptr, int* index) {
 
 // Dado una cadena de chars, el ptr de la cadena y un index devuelve un entero
 int obtener_entero(char* instruccion, char* ptr, int* index) {
-    char* cadena = malloc(MAX_SIZE_CADENA);
     int indexInicial = *index;
 
     while(isdigit(instruccion[*index])) {
         (*index)++;
     }
 
-    int tam_cadena = *index - indexInicial; 
+    int tam_cadena = *index - indexInicial;
+    char* cadena = malloc(tam_cadena + 1); // + para el /0 
     strncpy(cadena, ptr, tam_cadena); // strncpy copia en cadena desde ptr hasta tam_cadena
     cadena[tam_cadena] = '\0'; 
+    uint32_t num = atoi(cadena);
 
-    return atoi(cadena); // Se convierte la cadena a un entero
+    free(cadena);
+    return num; // Se convierte la cadena a un entero
 }
 
 void recibir_mensaje_desde_memoria(int fd_conexion) {
@@ -140,7 +140,6 @@ t_instruccion fetch_decode_execute(t_proceso_actual* proceso) {
 
             /* EXECUTE */
             log_info(logger, "## PID: %d - Ejecutando INST_NOOP sin parametros", pid);
-            free(cadena);
             break;
 
         case INST_WRITE: { // WRITE <direccion[int]> <datos[string]>
@@ -158,16 +157,21 @@ t_instruccion fetch_decode_execute(t_proceso_actual* proceso) {
             /* EXECUTE */
             if((entrada_cache = verificar_en_cache(direccion)) != NULL) {
                 log_info(logger, "PID: %d - Cache HIT - Pagina: %d", pid, entrada_cache->pagina);
-                ejecutar_write_en_cache(entrada_cache, datos);
                 log_info(logger, "## PID: %d - Ejecutando INST_WRITE desde CACHE: direccion=%d, datos=%s", pid, direccion, datos);
+                ejecutar_write_en_cache(entrada_cache, datos);
+                log_info(logger, "PID: %d - Accion ESCRIBIR - Direccion Fisica: %d - Valor: %s", pid, entrada_cache->direccion_fisica, datos);
 
             } else {
                 uint32_t direccionFisica = traducir_a_direccion_fisica(direccion, pid);
 
                 log_info(logger, "## PID: %d - Ejecutando INST_WRITE con parametros: direccion=%d, datos=%s", pid, direccion, datos);
-                ejecutar_write(proceso, direccionFisica, datos); 
-                agregar_a_cache(direccionFisica, datos, pid); // Se guardan los datos escritos en la cache (el PID solo se usa para el log)
+                ejecutar_write(proceso, direccionFisica, datos);
+                log_info(logger, "PID: %d - Accion ESCRIBIR - Direccion Fisica: %d - Valor: %s", pid, direccionFisica, datos); 
+                agregar_a_cache(direccionFisica, datos, pid, 'W'); // Se guardan los datos escritos en la cache (el PID solo se usa para el log)
             }
+
+            free(datos);
+            log_estado_caches(pid);
             break;
         }
             
@@ -187,8 +191,9 @@ t_instruccion fetch_decode_execute(t_proceso_actual* proceso) {
             /* EXECUTE */
             if((entrada_cache = verificar_en_cache(direccion)) != NULL) {
                 log_info(logger, "PID: %d - Cache Hit - Pagina: %d", pid, entrada_cache->pagina);
-                datos = ejecutar_read_en_cache(entrada_cache, tamanio);
                 log_info(logger, "## PID: %d - Ejecutando INST_READ desde CACHE: direccion=%d, tamanio=%d", pid, direccion, tamanio); 
+                datos = ejecutar_read_en_cache(entrada_cache, tamanio);
+                log_info(logger, "PID: %d - Accion LEER - Direccion Fisica: %d - Valor: %s", pid, entrada_cache->direccion_fisica, datos);
                 printf("## PID: %d - READ - Datos leidos: %s\n", pid, datos);
                 
             } else {
@@ -196,8 +201,12 @@ t_instruccion fetch_decode_execute(t_proceso_actual* proceso) {
 
                 log_info(logger, "## PID: %d - Ejecutando INST_READ con parametros: direccion=%d, tamanio=%d", pid, direccion, tamanio);
                 datos = ejecutar_read(proceso, direccionFisica, tamanio);
-                agregar_a_cache(direccionFisica, datos, pid); // Se guardan los datos leidos en la cache (el PID solo se usa para el log)
+                log_info(logger, "PID: %d - Accion LEER - Direccion Fisica: %d - Valor: %s", pid,direccionFisica, datos);
+                agregar_a_cache(direccionFisica, datos, pid, 'R'); // Se guardan los datos leidos en la cache (el PID solo se usa para el log)
             }
+
+            free(datos);
+            log_estado_caches(pid);
             break;
         }
             
@@ -227,6 +236,7 @@ t_instruccion fetch_decode_execute(t_proceso_actual* proceso) {
             /* EXECUTE */
             log_info(logger, "## PID: %d - Ejecutando INST_IO con parametros: dispositivo=%s, tiempo=%d", pid, dispositivo, tiempo);
             ejecutar_io(proceso, dispositivo, tiempo);
+            free(dispositivo);
             break;
         }
             
@@ -244,6 +254,7 @@ t_instruccion fetch_decode_execute(t_proceso_actual* proceso) {
             /* EXECUTE */
             log_info(logger, "## PID: %d - Ejecutando INST_INIT_PROC con parametros: archivo=%s, tamanio=%d", pid, archivo, tamanio);
             ejecutar_init_proc(proceso, archivo, tamanio);
+            free(archivo);
             break;
         }
 
@@ -258,8 +269,8 @@ t_instruccion fetch_decode_execute(t_proceso_actual* proceso) {
 
             //Esta actualización es innecesaria dado que luego del EXIT el proceso termina
             //Pero se implementa para realizar las pruebas con un solo proceso
-            vaciar_entradas_tlb(pid); 
-            vaciar_entradas_cache(pid, proceso->fd_conexion_memoria); 
+            //vaciar_entradas_tlb(pid); 
+            //vaciar_entradas_cache(pid, proceso->fd_conexion_memoria); 
 
             /* EXECUTE */
             log_info(logger, "## PID: %d - Ejecutando INST_EXIT", pid); 
@@ -269,13 +280,25 @@ t_instruccion fetch_decode_execute(t_proceso_actual* proceso) {
         default:
             // Si no se reconoce la operacion, se logea el error y sale de la funcion
             log_error(logger, "Instruccion no reconocida: %s", cadena);
-            free(cadena);
             exit(EXIT_FAILURE);
-            //return;
     }    
 
     // si todo se ejecuto correctamente, termina la funcion y prosigue a la siguiente etapa
     free(instruccion);
+    free(cadena);
     return operacion; // se retorna la operacion para verificar si debe terminarse el ciclo
+}
+
+
+// logs para debugging
+
+void log_estado_caches(uint32_t pid) {
+    // >>> INICIO: AÑADIR LOGS AL EJECUTAR UNA INSTRUCCION READ/WRITE <<<
+    log_debug(logger, "------------------------------------------------------");
+    log_debug(logger, "CPU recibe Proceso PID: %d. Estado de TLB y Cache:", pid);
+    log_tlb(pid, "Al ejecutar una instruccion");
+    log_cache(pid, "Al ejecutar una instruccion");
+    log_debug(logger, "------------------------------------------------------");
+    // >>> FIN: AÑADIR LOGS AL EJECUTAR UNA INSTRUCCION <<<
 }
 

@@ -53,7 +53,7 @@ void imprimir_diccionario_completo() {
     }
 
     log_info(logger, "============ INICIO DUMP DICCIONARIO DE PROCESOS ============");
-    pthread_mutex_lock(&mutex_diccionario_instrucciones);
+    pthread_mutex_lock(&mutex_frames_y_diccionario);
     
     if (dictionary_is_empty(dicc_pids_con_instrucciones)) {
         log_info(logger, "El diccionario de procesos está vacío.");
@@ -61,13 +61,13 @@ void imprimir_diccionario_completo() {
         dictionary_iterator(dicc_pids_con_instrucciones, _log_proceso_detalle);
     }
 
-    pthread_mutex_unlock(&mutex_diccionario_instrucciones);
+    pthread_mutex_unlock(&mutex_frames_y_diccionario);
     log_info(logger, "============= FIN DUMP DICCIONARIO DE PROCESOS ==============");
 }
 
 void imprimir_estado_frames() {
     log_info(logger, "============ INICIO ESTADO DE FRAMES EN MEMORIA ============");
-    pthread_mutex_lock(&mutex_frames);
+    pthread_mutex_lock(&mutex_frames_y_diccionario);
 
     int total_frames = list_size(lista_frames);
     for (int i = 0; i < total_frames; i++) {
@@ -79,6 +79,6 @@ void imprimir_estado_frames() {
         }
     }
 
-    pthread_mutex_unlock(&mutex_frames);
+    pthread_mutex_unlock(&mutex_frames_y_diccionario);
     log_info(logger, "============= FIN ESTADO DE FRAMES EN MEMORIA ==============");
 }

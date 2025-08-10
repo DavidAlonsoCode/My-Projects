@@ -11,9 +11,9 @@ int crear_conexion_segun(char* tipo, char* ip, char* puerto) {
     return conexion;
 }
 
-uint32_t check_interrupt(int conexion){
+int check_interrupt(int conexion){
     uint32_t codOp;
-    uint32_t pidReady = -1;
+    int pidReady = -1;
     // Verifica si hay una interrupcion en el puerto de interrupcion
     codOp = recibir_operacion_no_bloqueante(conexion);
 

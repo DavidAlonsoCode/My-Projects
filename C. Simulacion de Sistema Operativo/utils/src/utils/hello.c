@@ -40,10 +40,11 @@ int iniciar_servidor(char *puerto, char *nombreServidor)
 	return socket_servidor;
 }
 
-t_log *iniciar_logger(char *nombreArchivo, char *nombreProceso)
+t_log *iniciar_logger(char *nombreArchivo, char *nombreProceso,char* logLevel)
 {
 
-	t_log *nuevo_logger = log_create(nombreArchivo, nombreProceso, 0, LOG_LEVEL_INFO);
+
+	t_log *nuevo_logger = log_create(nombreArchivo, nombreProceso, 0, log_level_from_string(logLevel));
 
 	if (nuevo_logger == NULL)
 	{
@@ -88,12 +89,14 @@ uint32_t recibir_operacion(int socket_cliente)
 uint32_t recibir_operacion_no_bloqueante(int socket_cliente)
 {
 	uint32_t cod_op;
-	if (recv(socket_cliente, &cod_op, sizeof(uint32_t), MSG_DONTWAIT) > 0)
+	uint32_t resultado = recv(socket_cliente, &cod_op, sizeof(uint32_t), MSG_DONTWAIT);
+	if (resultado > 0)
 		return cod_op;
-	else
-	{
+	else if (resultado == 0) {
 		close(socket_cliente);
 		return -1;
+	} else {
+		return -2;
 	}
 }
 
@@ -263,6 +266,26 @@ uint32_t recibir_pid(int fd_conexion){
 	 free(buffer);
 	 return pid;
 	
+}
+
+uint32_t recibir_pid_pc(int fd_conexion,uint32_t *pc){
+
+	uint32_t size;
+
+	uint32_t pid = 0 ;//malloc(sizeof(uint32_t)); //LIBERAR
+
+	uint32_t desplazamiento = 0;
+
+	void *buffer = recibir_buffer(&size, fd_conexion); 
+
+	memcpy(&pid, buffer + desplazamiento, sizeof(uint32_t)); //recibo el pid
+	desplazamiento += sizeof(uint32_t);
+
+	memcpy(pc, buffer + desplazamiento, sizeof(uint32_t)); //recibo el pc
+	desplazamiento += sizeof(uint32_t);
+
+	free(buffer);
+	return pid;
 }
 
 void *serializar_paquete(t_paquete *paquete, uint32_t bytes)

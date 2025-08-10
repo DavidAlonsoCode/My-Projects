@@ -12,14 +12,15 @@ int main(int argc, char* argv[]) {
     //para log y config
     char nombre_log[TAM_NOMBRE_LOG];
     char nombre_proceso[TAM_NOMBRE_PROCESO];
+    t_config* ip_config;
     t_config* config;
     //para conexiones
     char* ip_kernel;
-    char* ip_memoria;           //ips
+    char* ip_memoria;           
     char* puerto_kernel_dis;
     char* puerto_kernel_int; 
-    char* puerto_memoria;       //puertos
-    char* id_cpu;               //id que se recibe por consola
+    char* puerto_memoria;       
+    char* id_cpu;               
 
     saludar("cpu");
 
@@ -27,9 +28,10 @@ int main(int argc, char* argv[]) {
     if (argc < 2) { // Si no se proporciona un identificador, no podemos continuar
         fprintf(stderr, "Error: Se requiere un identificador para la CPU.\n");
         fprintf(stderr, "Uso: %s <identificador>\n", argv[0]);
-        return EXIT_FAILURE; // Salir indicando un error
+        return EXIT_FAILURE; 
     }
     id_cpu = argv[1];
+    char* rutaConfig = argv[2];
 
 
     /* INICIAR LOGGER Y CONFIG */
@@ -37,22 +39,20 @@ int main(int argc, char* argv[]) {
     //Iniciar logger
     snprintf(nombre_log, sizeof(nombre_log), "cpu-%s.log", id_cpu); //mete en "nombre_log" el string "cpu-<id_cpu>.log"
     snprintf(nombre_proceso, sizeof(nombre_log), "LOG-cpu-%s", id_cpu); //mete en "nombre_process" el string
-    logger = iniciar_logger(nombre_log, nombre_proceso);
-	
-    log_info(logger, "Hola soy un log de cpu %s que sirve para ver si esta inicializado",id_cpu);
     //Iniciar config
-    config = iniciar_config("./cpu.config");
+    ip_config = iniciar_config("./ip.config");
+    config = iniciar_config(rutaConfig);
 
 
     /* OBTENER LOS VALORES DEL CONFIG */
 
     //del KERNEL: 
-    ip_kernel           = config_get_string_value(config, "IP_KERNEL");
-    puerto_kernel_dis   = config_get_string_value(config,"PUERTO_KERNEL_DISPATCH");
-    puerto_kernel_int   = config_get_string_value(config,"PUERTO_KERNEL_INTERRUPT");
+    ip_kernel           = config_get_string_value(ip_config, "IP_KERNEL");
+    puerto_kernel_dis   = config_get_string_value(ip_config,"PUERTO_KERNEL_DISPATCH");
+    puerto_kernel_int   = config_get_string_value(ip_config,"PUERTO_KERNEL_INTERRUPT");
     //de MEMORIA:
-    ip_memoria          = config_get_string_value(config, "IP_MEMORIA");
-    puerto_memoria      = config_get_string_value(config,"PUERTO_MEMORIA");
+    ip_memoria          = config_get_string_value(ip_config, "IP_MEMORIA");
+    puerto_memoria      = config_get_string_value(ip_config,"PUERTO_MEMORIA");
     //de MMU Y CACHE DE PAGINAS:
     valores_cache* configCache = malloc(sizeof(valores_cache));
     configCache->entradas_tlb    = config_get_string_value(config,"ENTRADAS_TLB");
@@ -60,8 +60,11 @@ int main(int argc, char* argv[]) {
     configCache->entradas_cache  = config_get_string_value(config,"ENTRADAS_CACHE");
     configCache->reemplazo_cache = config_get_string_value(config,"REEMPLAZO_CACHE");
     configCache->retardo_cache   = config_get_string_value(config,"RETARDO_CACHE");
-    
 
+    char* logLevel = config_get_string_value(config,"LOG_LEVEL");
+    logger = iniciar_logger(nombre_log, nombre_proceso,logLevel);
+	
+    log_info(logger, "Hola soy un log de cpu %s que sirve para ver si esta inicializado",id_cpu);
     /* CREAR LAS CONEXIONES */
 
     //kernel dispatch e interrupt, y memoria
@@ -93,37 +96,38 @@ int main(int argc, char* argv[]) {
         // Setea la operacion en INICIO antes de correr el ciclo
         t_instruccion operacion = INICIO;
         
-        while(operacion != INST_IO && operacion != INST_DUMP_MEMORY && operacion != INST_EXIT) {
+        while(operacion != INST_EXIT) {
 
             operacion = fetch_decode_execute(proceso);  // Obtiene la instruccion desde memoria, la decodifica y ejecuta
-            uint32_t pidReady = check_interrupt(fd_conexion_interrupt);
+            
+            int pidReady = check_interrupt(fd_conexion_interrupt);
+
+            if(operacion == INST_EXIT) {
+                // Informa que se terminaron de ejecutar todas las instrucciones asociadas al proceso si la operacion es INST_EXIT
+                log_info(logger, "Se ejecutaron todas las instrucciones asociadas al proceso: %d", proceso->pid);
+                break; 
+            }
+
+            if(operacion == INST_IO || operacion == INST_DUMP_MEMORY) {
+                break; 
+            }
+
+            if(operacion != INST_GOTO) {
+                proceso->pc++; // GOTO no incrementa el pc
+            }
+
             if(pidReady != -1) {
                 log_info(logger, "## Llega interrupcion al puerto interrupt de la CPU %s", id_cpu);
-                enviar_paquete_proceso_kernel_segun(fd_conexion_dispatch, pidReady, proceso->pc, REPLANIFICAR);
+                uint32_t pidAEnviar = (uint32_t)pidReady;
+                enviar_paquete_proceso_kernel_segun(fd_conexion_dispatch, pidAEnviar, proceso->pc, REPLANIFICAR);
                 break;  // Si hay interrupcion, se envia el proceso al kernel y se sale del ciclo
             }
-            
-            // >>> INICIO: AÑADIR LOGS AL EJECUTAR UNA INSTRUCCION <<<
-            log_info(logger, "------------------------------------------------------");
-            log_info(logger, "CPU recibe Proceso PID: %d. Estado de TLB y Cache:", proceso->pid);
-            log_estado_tlb(proceso->pid, "Al ejecutar una instruccion");
-            log_estado_cache(proceso->pid, "Al ejecutar una instruccion");
-            log_info(logger, "------------------------------------------------------");
-            // >>> FIN: AÑADIR LOGS AL EJECUTAR UNA INSTRUCCION <<<
-
-            if(operacion != INST_GOTO) proceso->pc++; // GOTO no incrementa el pc
         }
+        // Se actualiza la memoria y se limpia la cache
+        eliminar_entradas_tlb(proceso->pid); 
+        eliminar_entradas_cache(proceso->pid);
 
-        // Informa que se terminaron de ejecutar todas las instrucciones asociadas al proceso si la operacion es INST_EXIT
-        if(operacion == INST_EXIT) {
-            log_info(logger, "Se ejecutaron todas las instrucciones asociadas al proceso: %d", proceso->pid);
-        } else {
-            // Si no es INST_EXIT, pero se desaloja el proceso, se actualiza la memoria y se limpia la cache
-            eliminar_entradas_tlb(proceso->pid); 
-            eliminar_entradas_cache(proceso->pid, fd_conexion_memoria);
-
-            log_info(logger, "Proceso: %d desalojado. Se espera un nuevo proceso a ejecutar", proceso->pid);
-        }
+        log_info(logger, "Proceso: %d desalojado. Se espera un nuevo proceso a ejecutar", proceso->pid);
         
         proceso->pid = 0; // Reinicia pid y pc para la proxima iteracion
         proceso->pc  = 0;
@@ -138,6 +142,7 @@ int main(int argc, char* argv[]) {
     free(configCache);
     close(fd_conexion_dispatch);
     close(fd_conexion_interrupt);
+    config_destroy(ip_config);
     terminar_programa(fd_conexion_memoria, logger, config);
 
     return 0;

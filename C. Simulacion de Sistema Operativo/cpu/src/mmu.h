@@ -15,16 +15,10 @@ void iniciar_mmu(int fd_conexion, valores_cache* configuracion);
 
 void eliminar_entradas_tlb(uint32_t pid);
 
-void eliminar_entradas_cache(uint32_t pid, int conexion);
+void eliminar_entradas_cache(uint32_t pid);
 
 void eliminar_tabla_tlb();
 
 void eliminar_tabla_cache();
-
-// logs para debugging
-
-void log_estado_tlb(uint32_t pid, const char* mensaje);
-
-void log_estado_cache(uint32_t pid, const char* mensaje);
 
 #endif

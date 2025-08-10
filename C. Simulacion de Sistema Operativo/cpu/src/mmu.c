@@ -94,11 +94,13 @@ uint32_t traducir_a_direccion_fisica(uint32_t direccion, uint32_t pid) {
             codOp = recibir_operacion(conexion_memoria);
         }
 
-        frame = *((uint32_t*)recibir_buffer(&size, conexion_memoria)); // se castea a uint32_t para luego desreferenciarlo con el ultimo *
+        uint32_t* buffer = recibir_buffer(&size, conexion_memoria); // se castea a uint32_t para luego desreferenciarlo con el ultimo *
+        frame = (*buffer);
         log_info(logger, "PID: %d - OBTENER MARCO - Pagina: %d - Marco: %d", pid, num_pagina, frame);
 
         agregar_a_tlb(num_pagina, frame); // Como hubo un TLB miss, se agrega la entrada a la TLB
         list_destroy_and_destroy_elements(entrada_niveles, free);
+        free(buffer);
     }
 
     uint32_t desplazamiento = direccion % tamanioPagina;
@@ -134,7 +136,7 @@ void iniciar_mmu(int conexion, valores_cache* config) {
     } 
     
     if(entradas_cache > 0) {
-        crear_cache_paginas(entradas_cache, reemplazo_cache, retardo_cache, tamanioPagina);
+        crear_cache_paginas(entradas_cache, reemplazo_cache, retardo_cache, tamanioPagina, conexion_memoria);
     }
 }
 
@@ -145,8 +147,8 @@ void eliminar_entradas_tlb(uint32_t pid) {
     vaciar_entradas_tlb(pid);
 }
 
-void eliminar_entradas_cache(uint32_t pid, int conexion) {
-    vaciar_entradas_cache(pid, conexion);
+void eliminar_entradas_cache(uint32_t pid) {
+    vaciar_entradas_cache(pid);
 }
 
 void eliminar_tabla_tlb() {
@@ -155,14 +157,4 @@ void eliminar_tabla_tlb() {
 
 void eliminar_tabla_cache() {
     vaciar_cache();
-}
-
-// Logs para debugging
-
-void log_estado_tlb(uint32_t pid, const char* mensaje) {
-    log_tlb(pid, mensaje);
-}
-
-void log_estado_cache(uint32_t pid, const char* mensaje) {
-    log_cache(pid, mensaje);
 }

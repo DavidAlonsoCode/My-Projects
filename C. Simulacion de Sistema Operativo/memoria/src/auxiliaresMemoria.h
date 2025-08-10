@@ -85,6 +85,12 @@ typedef struct {
     char* pathInstrucciones; // Path donde se encuentran las instrucciones de los procesos
 } memoria_configs;
 
+typedef struct {
+uint32_t pid;
+uint32_t nro_pagina;
+uint32_t indice_bloque;
+}t_pagina_en_swap;
+
 //GENERICOS
 void* atender_cliente(void* datos_cliente);
 char* guardar_proceso(t_info_nuevo_proceso* info_proceso);
@@ -93,7 +99,7 @@ char* destruirProceso(char* pid);
 void leer_lineas_archivo(FILE* archivo, t_list* lista_instrucciones);
 t_value_proceso* llenar_contenido_proceso(t_info_nuevo_proceso* info_proceso, t_list* instrucciones, t_tabla_de_pagina* tabla_global_L1);
 t_tabla_de_pagina* crear_tabla_de_nivel(uint32_t nivelTabla);
-void guardar_configs(t_config* config);
+void guardar_configs(t_config* config, t_config* ip_config);
 void destruir_lista_frames(t_list* lista_frames);
 void enviar_info_configs_a_mmu(int conexion);
 
@@ -110,6 +116,8 @@ void liberar_frames_de_proceso(uint32_t pid);
 char* realizar_dump(uint32_t pid_a_dump);
 int obtener_cantidad_paginas(uint32_t pid);
 void* inicio_frame(int indice_frame);
+//Relacionados a SWAP
+
 
 //RECIBIR COSAS
 uint32_t recibir_proceso_dump(int conexion_kernel);
@@ -126,12 +134,15 @@ extern t_dictionary* dicc_pids_con_instrucciones; //su key es el pid y el valor 
 extern void* memoria_usuario;
 extern memoria_configs* configs; // Estructura que contiene la configuracion de memoria
 extern t_list* lista_frames; //lista de frames (reemplaza bitmap)
+extern t_list* lista_bloques_swap; //lista de bloques en swap
+extern int fd_swap;
+
 
 // Semaforos y mutex
-extern pthread_mutex_t mutex_diccionario_instrucciones;
-extern pthread_mutex_t mutex_frames;
-extern pthread_mutex_t mutex_memoria_usuario;
 extern pthread_mutex_t mutex_frames_y_diccionario; //protege a ambos cuando se tienen que utilizar juntos
+extern pthread_mutex_t mutex_bloques;
+extern pthread_mutex_t mutex_fd_swap;
+
 
 //t_tabla_de_pagina* crear_tablas_de_paginas(); ANTES
 //t_tabla_de_pagina* crear_estructura_de_paginacion_global(); ANTES

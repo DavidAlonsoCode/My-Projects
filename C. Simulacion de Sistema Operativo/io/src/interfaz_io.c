@@ -20,8 +20,8 @@ t_usar_io* recibir_usar_io(int conexion){
 
 void comenzar_uso(t_usar_io* datos){
 
+	log_info(logger, "PID:%d - INICIO DE IO - Tiempo: %d", datos->pid,datos->tiempo);
 	usleep(datos->tiempo * 1000);
-    log_info(logger, "PID:%d - INICIO DE IO - Tiempo: %d", datos->pid,datos->tiempo);
 
 }
 
@@ -35,12 +35,3 @@ void finalizar_uso(t_usar_io* datos,int conexion){
     liberar_usar_io(datos);
 
 }
-// void desconectar_io(int signal){
-//     extern int fd_conexion_kernel;
-//     int codigo = DESCONEXION_IO;
-//     //avisar a kernel 
-//     send(fd_conexion_kernel,&codigo,sizeof(int),0);
-//     close(fd_conexion_kernel);
-        
-//     exit(0);
-// }

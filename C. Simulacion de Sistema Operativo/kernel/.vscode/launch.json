@@ -6,7 +6,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/bin/${workspaceFolderBasename}",
-      "args": ["Archivo","2048"],
+      "args": ["MEMORIA_IO","90","./kernelPruebaSwap.config"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],

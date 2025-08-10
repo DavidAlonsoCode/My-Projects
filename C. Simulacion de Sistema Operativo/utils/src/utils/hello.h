@@ -24,6 +24,8 @@
 #include <math.h>
 #include <commons/temporal.h>
 #include <sys/time.h>
+#include <fcntl.h>       // Para open()
+#include <sys/stat.h>
 
 typedef enum {
 	MENSAJE, //0
@@ -50,7 +52,9 @@ typedef enum {
 	REPLANIFICAR,
 	PETICION_DUMP, //memoria
 	PETICION_MARCO,
-	ACTUALIZAR_MEMORIA 
+	ACTUALIZAR_MEMORIA,
+	SUSPENDER_PROCESO,
+	DESUSPENDER_PROCESO 
 }op_code;
 
 typedef struct {
@@ -145,6 +149,7 @@ typedef struct{
 	char* identificador;
 	char estado; //basicamente un estado de un char si es "O" ,significa ocupada , si es "L" libre
 	pcb* procesoEnEjecucion;
+	bool sePuedeDesalojar;
 }cpu_datos;
 
 typedef struct{
@@ -162,11 +167,14 @@ void recibir_mensaje_desde_cliente(int);
 uint32_t recibir_operacion(int);
 void* recibir_buffer(uint32_t*, int);
 t_list* recibir_paquete(int);
+uint32_t recibir_pid_pc(int fd_conexion,uint32_t *pc);
 //////////////////////// FIN SECCION RECIBIR //////////////
 
 //////////////////////// INICIO SECCION ESPERAR ///////////////////////////////
 int esperar_cliente(int);
 uint32_t recibir_pid(int fd_conexion);
+uint32_t recibir_pid_pc(int fd_conexion,uint32_t *pc);
+
 
 //////////////////////// FIN SECCION ESPERAR //////////////////////////////////
 
@@ -177,7 +185,7 @@ void atenderConexion(void* datosServidorSinTipo);
 
 //////////////////////// INICIO SECCION INICIAR ///////////////////////////////
 t_config* iniciar_config(char* ruta);
-t_log* iniciar_logger(char* nombreArchivo,char* nombreProceso);
+t_log* iniciar_logger(char* nombreArchivo,char* nombreProceso,char*);
 int iniciar_servidor(char* puerto,char* nombreServidor);
 //////////////////////// FIN SECCION INICIAR //////////////////////////////////
 t_info_nuevo_proceso *recibir_nuevo_proceso(int socket_cliente); 
@@ -214,5 +222,6 @@ void *serializar_paquete(t_paquete *, uint32_t );
 void saludar(char* quien);
 
 uint32_t recibir_operacion_no_bloqueante(int socket_cliente);
+
 
 #endif

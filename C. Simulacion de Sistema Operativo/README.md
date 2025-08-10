@@ -1,6 +1,7 @@
-## Consigna
+# tp-scaffold
 
-https://docs.google.com/document/d/1HC9Zi-kpn8jI_egJGEZe77wUCbSkwSw9Ygqqs7m_-is/edit?tab=t.0
+Esta es una plantilla de proyecto diseñada para generar un TP de Sistemas
+Operativos de la UTN FRBA.
 
 ## Dependencias
 
@@ -39,6 +40,47 @@ repositorio:
 code tp.code-workspace
 ```
 
+## Checkpoint
+
+Para cada checkpoint de control obligatorio, se debe crear un tag en el
+repositorio con el siguiente formato:
+
+```
+checkpoint-{número}
+```
+
+Donde `{número}` es el número del checkpoint, ejemplo: `checkpoint-1`.
+
+Para crear un tag y subirlo al repositorio, podemos utilizar los siguientes
+comandos:
+
+```bash
+git tag -a checkpoint-{número} -m "Checkpoint {número}"
+git push origin checkpoint-{número}
+```
+
+> [!WARNING]
+> Asegúrense de que el código compila y cumple con los requisitos del checkpoint
+> antes de subir el tag.
+
+## Entrega
+
+Para desplegar el proyecto en una máquina Ubuntu Server, podemos utilizar el
+script [so-deploy] de la cátedra:
+
+```bash
+git clone https://github.com/sisoputnfrba/so-deploy.git
+cd so-deploy
+./deploy.sh -r=release -p=utils -p=kernel -p=cpu -p=memoria -p=io "tp-{año}-{cuatri}-{grupo}"
+```
+
+El mismo se encargará de instalar las Commons, clonar el repositorio del grupo
+y compilar el proyecto en la máquina remota.
+
+> [!NOTE]
+> Ante cualquier duda, pueden consultar la documentación en el repositorio de
+> [so-deploy], o utilizar el comando `./deploy.sh --help`.
+
 ## Guías útiles
 
 - [Cómo interpretar errores de compilación](https://docs.utnso.com.ar/primeros-pasos/primer-proyecto-c#errores-de-compilacion)
@@ -47,3 +89,4 @@ code tp.code-workspace
 - **[Guía de despliegue de TP](https://docs.utnso.com.ar/guías/herramientas/deploy)**
 
 [so-commons-library]: https://github.com/sisoputnfrba/so-commons-library
+[so-deploy]: https://github.com/sisoputnfrba/so-deploy

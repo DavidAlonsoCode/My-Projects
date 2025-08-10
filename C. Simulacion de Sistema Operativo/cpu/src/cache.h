@@ -29,11 +29,12 @@ typedef struct {
 }t_entrada_tlb;
 
 typedef struct {
+    uint32_t pid;
     uint32_t pagina;
     uint32_t direccion_fisica;
     char* contenido;    // Este puntero guarda los datos que se reciben, pero el contenido se copia aparte en la cache
-    int bit_referencia; // Clock
-    int bit_modificado; // Clock-M
+    uint8_t bit_referencia; // Clock
+    uint8_t bit_modificado; // Clock-M
 }t_entrada_cache;
 
 uint32_t traducir_a_direccion_fisica(uint32_t direccion_logica, uint32_t pid);
@@ -50,13 +51,13 @@ void vaciar_entradas_tlb(uint32_t pid);
 
 void vaciar_tlb();
 
-void vaciar_entradas_cache(uint32_t pid, int conexion);
+void vaciar_entradas_cache(uint32_t pid);
 
 void vaciar_cache();
 
 // Cache de paginas
 
-void crear_cache_paginas(int cantEntradas, char* algoritmo, int retardo, uint32_t tamanioPagina);;
+void crear_cache_paginas(int cantEntradas, char* algoritmo, int retardo, uint32_t tamanioPagina, int conexion_memoria);
 
 t_entrada_cache* verificar_en_cache(uint32_t direccion);
 
@@ -64,7 +65,7 @@ void ejecutar_write_en_cache(t_entrada_cache* entrada_cache, char* datos);
 
 char* ejecutar_read_en_cache(t_entrada_cache* entrada_cache, uint32_t tamanio);
 
-void agregar_a_cache(uint32_t direccion_fisica, char* datos, uint32_t pid);
+void agregar_a_cache(uint32_t direccion_fisica, char* datos, uint32_t pid, char accion);
 
 void enviar_solicitud_escritura(int conexion, uint32_t direccion, char* datos, uint32_t pid); // necesario para actualizar la memoria
 

@@ -1,5 +1,6 @@
 #include <auxiliaresMemoria.h>
 #include <mostrarDiccionarioYTablas.h>
+#include "swap.h"
 
 void *atender_cliente(void *datosSinTipo)
 {
@@ -12,7 +13,7 @@ void *atender_cliente(void *datosSinTipo)
 	
 	free(datos->fd_conexion_ptr);
 	free(datos); // Liberamos memoria reservada
-	char* respuesta_operacion = NULL; // Para mensajes como "OK", "ERROR"
+	// Los "char* respuesta_operacion" son para mensajes como "OK", "ERROR", etc.
 
 	while (1) //habria que agregar una condicion de salida para cortar el programa manualmente
 	{
@@ -26,25 +27,27 @@ void *atender_cliente(void *datosSinTipo)
 			enviar_mensaje(mensaje,fd_conexion);									
 			break;
 		case PROCESO:
+            char* respuesta_operacion1 = NULL;
 			t_info_nuevo_proceso* info_proceso = recibir_nuevo_proceso(fd_conexion); //leer descripcion en recibir_nuevo_proceso
 
 			// "guardar_proceso" retorna "OK" o "ERROR", por eso esta dentro de enviar_mensaje, para mas info ver definicion
-            pthread_mutex_lock(&mutex_frames_y_diccionario);
-			respuesta_operacion = guardar_proceso(info_proceso); //hacer dinamico
+			respuesta_operacion1 = guardar_proceso(info_proceso); //hacer dinamico
             pthread_mutex_unlock(&mutex_frames_y_diccionario);
 
-			enviar_mensaje(respuesta_operacion, fd_conexion); //Enviar mensaje de confirmación a Kernel, OK o ERROR
+			enviar_mensaje(respuesta_operacion1, fd_conexion); //Enviar mensaje de confirmación a Kernel, OK o ERROR
 			
 			//imprimir_diccionario_completo();
 			//imprimir_estado_frames();
 
-			if (strcmp(respuesta_operacion, "OK") == 0)
+			if (strcmp(respuesta_operacion1, "OK") == 0)
 			log_info(logger, "## PID: %d - Proceso Creado - Tamaño: %d", info_proceso->pid, info_proceso->tamanio_bytes_archivo);
 
 			free(info_proceso->nombre_archivo);
 			free(info_proceso);
 			break;
 		case DESTRUCCION_PROCESO:
+            char* respuesta_operacion2 = NULL;    
+
 			//Recibo el pid del proceso a destruir
 			uint32_t pid_entero = recibir_pid(fd_conexion);
 			//Transformo el pid a string
@@ -56,12 +59,12 @@ void *atender_cliente(void *datosSinTipo)
             
             // Es más seguro verificar si el proceso existe ANTES de intentar acceder a sus métricas
             if (value == NULL) {
-                respuesta_operacion = "ERROR_PROCESO_NO_EXISTE";
+                respuesta_operacion2 = "ERROR_PROCESO_NO_EXISTE";
             } else {
                 t_metricas_proceso metricasLog = *(value->metricas); // Copia segura
-                respuesta_operacion = destruirProceso(pid_str); // Ahora destruirProceso solo remueve y libera
+                respuesta_operacion2 = destruirProceso(pid_str); // Ahora destruirProceso solo remueve y libera
                 
-                if (strcmp(respuesta_operacion, "OK") == 0) {
+                if (strcmp(respuesta_operacion2, "OK") == 0) {
                     log_info(logger, "## PID: %s - Proceso Destruido - Metricas - Acc.T.Pag: %d; Inst.Sol.: %d; SWAP: %d; Mem.Prin.: %d; Lec.Mem.: %d; Esc.Mem.: %d",
                         pid_str,metricasLog.cant_accesos_a_TTDPP,metricasLog.cant_instruccs_solicitadas,
                         metricasLog.cant_bajadas_swap,metricasLog.cant_subidas_memoria,
@@ -74,7 +77,7 @@ void *atender_cliente(void *datosSinTipo)
             //imprimir_diccionario_completo();
             //imprimir_estado_frames();
 			
-			enviar_mensaje(respuesta_operacion, fd_conexion); //Enviar mensaje de confirmación a Kernel, OK o ERROR
+			enviar_mensaje(respuesta_operacion2, fd_conexion); //Enviar mensaje de confirmación a Kernel, OK o ERROR
 			
 			free(pid_str); //libero el pid que recibi como string
 			break;
@@ -95,37 +98,36 @@ void *atender_cliente(void *datosSinTipo)
 			//Ante un pedido de lectura, devolver el valor que se encuentra en la posición pedida. (osea recibo direccion fisica)
 			t_recepcion_lectura* recepcion_L = recibir_instruccion_lectura(fd_conexion);
 			char* datos = leer_direccion(recepcion_L); //busco el dato en la direccion fisica del void
-            
-            pthread_mutex_lock(&mutex_diccionario_instrucciones);
-            t_value_proceso* valueL = dictionary_get(dicc_pids_con_instrucciones, string_itoa(recepcion_L->pid));
+            char* pid_lectura_str =  string_itoa(recepcion_L->pid);
+            t_value_proceso* valueL = dictionary_get(dicc_pids_con_instrucciones, pid_lectura_str);
             valueL->metricas->cant_lecturas_memoria++;
-            pthread_mutex_unlock(&mutex_diccionario_instrucciones);
-
+            pthread_mutex_unlock(&mutex_frames_y_diccionario);
+        
 			enviar_mensaje(datos, fd_conexion); //Envia los datos leídos al CPU (Cuando CPU lo implemente)
             
             log_info(logger, "## PID: %d - Lectura - Dir. Física: %d - Tamaño: %d",
                 recepcion_L->pid, recepcion_L->direccion, recepcion_L->tamanio);
-            
+            free(pid_lectura_str);
             free(datos); // Tal vez no deberia ir esto
             free(recepcion_L);
 			break;
 		case PETICION_ESCRITURA:
 			/*Ante un pedido de escritura, escribir lo indicado en la posición pedida. En caso satisfactorio se responderá un mensaje de "OK".*/
 			t_recepcion_escritura* recepcion_E = recibir_instruccion_escritura(fd_conexion);
-    
+                
             // Llamar a la función que maneja la escritura
             atender_peticion_escritura(recepcion_E);
-
-            pthread_mutex_lock(&mutex_diccionario_instrucciones);
-            t_value_proceso* valueE = dictionary_get(dicc_pids_con_instrucciones, string_itoa(recepcion_E->pid));
+            char*pid_escritura_str =  string_itoa(recepcion_E->pid);
+            t_value_proceso* valueE = dictionary_get(dicc_pids_con_instrucciones,pid_escritura_str);
             valueE->metricas->cant_escrituras_memoria++;
-            pthread_mutex_unlock(&mutex_diccionario_instrucciones);
+            pthread_mutex_unlock(&mutex_frames_y_diccionario);
             
             enviar_mensaje("OK", fd_conexion); // Cuando CPU lo implemente, enviar mensaje de confirmación
             log_info(logger, "## PID: %d - Escritura - Dir. Física: %d - Tamaño: %d",
                     recepcion_E->pid, recepcion_E->direccion, recepcion_E->tamanio);
             
-            // Liberar recursos
+            // Liberar 
+            free(pid_escritura_str);
             free(recepcion_E->datos);
             free(recepcion_E);
             break;
@@ -138,8 +140,8 @@ void *atender_cliente(void *datosSinTipo)
 
             enviar_frame_a_cpu(fd_conexion, frame_encontrado);
 
-            log_info(logger, "## PID: %d - Petición de Marco: %d",
-                     peticion->pid, frame_encontrado);
+            //log_info(logger, "## PID: %d - Petición de Marco: %d",
+            //         peticion->pid, frame_encontrado);
             
             list_destroy_and_destroy_elements(peticion->entradas_por_nivel, free);
             free(peticion);
@@ -150,11 +152,31 @@ void *atender_cliente(void *datosSinTipo)
 			break;
 		case PETICION_DUMP:
 			uint32_t pid_dump = recibir_proceso_dump(fd_conexion);
+            //agregar mutex de frames y diccionario
+            
 			char* respuesta_dump = realizar_dump(pid_dump);
 			//enviamos la respuesta de finalizacion
 			enviar_mensaje(respuesta_dump,fd_conexion);
 
 			break;
+        case SUSPENDER_PROCESO:
+            uint32_t pid_suspender = recibir_pid(fd_conexion);
+            pthread_mutex_lock(&mutex_frames_y_diccionario);
+            pasar_a_swap(pid_suspender);
+            pthread_mutex_unlock(&mutex_frames_y_diccionario);
+            log_info(logger, "## PID: %d - PASO A SWAP",pid_suspender);
+            
+            break;
+        case DESUSPENDER_PROCESO:
+            char* respuesta_operacion3 = NULL;
+            uint32_t pid_desuspender = recibir_pid(fd_conexion);
+            //Hacemos lock de mutex_frames_y_diccionario dentro de sacar_de_swap
+            respuesta_operacion3 = sacar_de_swap(pid_desuspender);
+            pthread_mutex_unlock(&mutex_frames_y_diccionario);
+            enviar_mensaje(respuesta_operacion3, fd_conexion);
+            log_info(logger, "## PID: %d - SALIO DE SWAP",pid_desuspender);
+            
+            break;
 		case -1:
 			log_warning(logger, "Cliente desconectado: fd=%d", fd_conexion);
 			close(fd_conexion); // Cerramos conexión
@@ -168,6 +190,7 @@ void *atender_cliente(void *datosSinTipo)
 	return NULL;
 }
 
+
 void atender_peticion_escritura(t_recepcion_escritura* recepcion_E){
     uint32_t direccion = recepcion_E->direccion; //direccion fisica
     char* datos = recepcion_E->datos; //datos a escribir
@@ -179,10 +202,8 @@ void atender_peticion_escritura(t_recepcion_escritura* recepcion_E){
     }
     
     usleep(configs->retardo_memoria * 1000); // Simular retardo
-
-    pthread_mutex_lock(&mutex_memoria_usuario);
+    pthread_mutex_lock(&mutex_frames_y_diccionario);
     memcpy(memoria_usuario + direccion, datos, tamanio); //escribo en la memoria
-    pthread_mutex_unlock(&mutex_memoria_usuario);
 }
 
 char* leer_direccion(t_recepcion_lectura* recepcionL){ //lee la direccion de la memoria segun el tamanio
@@ -196,6 +217,7 @@ char* leer_direccion(t_recepcion_lectura* recepcionL){ //lee la direccion de la 
     usleep(configs->retardo_memoria * 1000);
 
     char* datos = malloc(tamanio+1);
+    pthread_mutex_lock(&mutex_frames_y_diccionario);
     memcpy(datos, memoria_usuario + direccion, tamanio);
     datos[tamanio] = '\0'; // Asegurar que la cadena esté terminada en nulo
 
@@ -221,15 +243,15 @@ uint32_t buscar_frame_para_pagina(t_peticion_marco* peticion) { // [pid,nroPag,e
     sprintf(key_pid, "%d", peticion->pid);
 
     // 1. Obtener el proceso y su tabla de primer nivel del diccionario.
-    pthread_mutex_lock(&mutex_diccionario_instrucciones);
+    pthread_mutex_lock(&mutex_frames_y_diccionario);
     t_value_proceso* value = dictionary_get(dicc_pids_con_instrucciones, key_pid);
-    pthread_mutex_unlock(&mutex_diccionario_instrucciones);
+    
     
     t_tabla_de_pagina* tabla_actual = value->tabla_primer_nvl; // Tabla de primer nivel del proceso
 
     // El acceso a tablas de paginas ahora lo hare dinamico usando la lista de entradas por nivel y un for
     for(int i=0; i < configs->cant_niveles - 1; i++) { //recorro hasta la anteultima entrada guardada en la lista
-        int nivel = i+1; //solo para claridad
+        //int nivel = i+1; //solo para claridad
         
         uint32_t* ptr_indice_entrada_tabla = list_get(peticion->entradas_por_nivel, i); // puntero al cero
         uint32_t indice_entrada_tabla = *ptr_indice_entrada_tabla; // obtengo al cero
@@ -239,8 +261,8 @@ uint32_t buscar_frame_para_pagina(t_peticion_marco* peticion) { // [pid,nroPag,e
         usleep(configs->retardo_memoria * 1000);
         value->metricas->cant_accesos_a_TTDPP++;
 
-        log_info(logger, "PID: %d - Acceso a Tabla Nivel %d - Entrada nro: %d -> Puntero a Tabla Nivel %d",
-        peticion->pid, nivel, indice_entrada_tabla, nivel+1);
+        //log_info(logger, "PID: %d - Acceso a Tabla Nivel %d - Entrada nro: %d -> Puntero a Tabla Nivel %d",
+        //peticion->pid, nivel, indice_entrada_tabla, nivel+1);
 
         tabla_actual = entrada_tabla->ptrTabla; // a traves de la entrada ingreso a la proxima tabla
     }
@@ -254,9 +276,11 @@ uint32_t buscar_frame_para_pagina(t_peticion_marco* peticion) { // [pid,nroPag,e
     // Simular retardo y actualizar métricas para el último acceso
     usleep(configs->retardo_memoria * 1000);
     value->metricas->cant_accesos_a_TTDPP++;
+
+    pthread_mutex_unlock(&mutex_frames_y_diccionario);
     
-    log_info(logger, "PID: %d - Acceso a Tabla Nivel %d - Entrada nro: %d -> Frame Encontrado: %d",
-        peticion->pid, configs->cant_niveles, indice_entrada_tabla_final, entrada_tabla_final->nroFrame);
+    //log_info(logger, "PID: %d - Acceso a Tabla Nivel %d - Entrada nro: %d -> Frame Encontrado: %d",
+    //    peticion->pid, configs->cant_niveles, indice_entrada_tabla_final, entrada_tabla_final->nroFrame);
 
     return entrada_tabla_final->nroFrame;
 }
@@ -292,8 +316,11 @@ char* destruirProceso(char* pid) {
     
     // Ya no se verifica si existe, se asume que el llamador lo hizo.
     t_value_proceso* value = dictionary_remove(dicc_pids_con_instrucciones, pid);
-
-    liberar_frames_de_proceso(pid_entero);
+    if (esta_en_swap(pid_entero)) {
+        liberar_bloques_swap_de_pid(pid_entero);
+    } else {
+        liberar_frames_de_proceso(pid_entero);
+    }
     destruir_tablas_recursivamente(value->tabla_primer_nvl);
     list_destroy_and_destroy_elements(value->instrucciones, free);
     
@@ -324,7 +351,7 @@ char* realizar_dump(uint32_t pid_a_dump){
     //en el modulo memoria no hay casos en los que se 
 
 		//un mutex para recorrer la lista_frames ?
-		pthread_mutex_lock(&mutex_frames);
+		pthread_mutex_lock(&mutex_frames_y_diccionario);
 		//recorremos los frames en busca del que tiene la pagina i del proceso
 		for(int nro_frame = 0; nro_frame < list_size(lista_frames); nro_frame++){
 			t_info_frame* aux_frame = list_get(lista_frames,nro_frame);
@@ -332,16 +359,14 @@ char* realizar_dump(uint32_t pid_a_dump){
 			//suponiendo que todos estan en memoria_usuario y no en swap
 			if(aux_frame->pid_proceso==pid_a_dump){
                 //log_info(logger, "Frame %d: PID=%d", nro_frame, aux_frame->pid_proceso);
-                char* contenido = mem_hexstring(inicio_frame(nro_frame),configs->tamanio_pagina);
-                //for (int i = 0; i < configs->tamanio_pagina; i++) {
-                fprintf(archivo_dump,"%s\n", contenido);
-                free(contenido);
-                //    }
-                //fprintf(archivo_dump, "\n");
+                void* contenido = inicio_frame(nro_frame);
+                fwrite(contenido, 1, configs->tamanio_pagina, archivo_dump);
+
+                
 			    }
  
 		}
-		pthread_mutex_unlock(&mutex_frames);
+		pthread_mutex_unlock(&mutex_frames_y_diccionario);
 	
 
 
@@ -369,7 +394,7 @@ void liberar_frames_de_proceso(uint32_t pid) {
         }
     }
     list_iterate(lista_frames, _liberar_si_pertenece);
-    log_info(logger, "Todos los frames del PID %d han sido liberados.", pid);
+    //log_info(logger, "Todos los frames del PID %d han sido liberados.", pid);
 }
 
 void destruir_tablas_recursivamente(t_tabla_de_pagina* tabla) {
@@ -400,16 +425,16 @@ char* buscar_instruccion(uint32_t pid, uint32_t pc){
 	sprintf(key_pid, "%d", pid); //paso el pid a string
 
 	//Busco el pid en el diccionario
-	pthread_mutex_lock(&mutex_diccionario_instrucciones);
+    pthread_mutex_lock(&mutex_frames_y_diccionario);
 	t_value_proceso* value = dictionary_get(dicc_pids_con_instrucciones, key_pid);
 
 	if (pc >= list_size(value->instrucciones)) {
         return "INSTRUCCION_INVALIDA";
     }
-
+	usleep(configs->retardo_memoria * 1000);
 	t_list* instrucciones = value->instrucciones;
     value->metricas->cant_instruccs_solicitadas++;
-    pthread_mutex_unlock(&mutex_diccionario_instrucciones);
+    pthread_mutex_unlock(&mutex_frames_y_diccionario);
 
 	return list_get(instrucciones, pc); //retorna la instruccion en el indice indicado por pc
 }
@@ -442,6 +467,8 @@ char* guardar_proceso(t_info_nuevo_proceso* info_proceso){
 	// Calcular páginas y verificar espacio
     int paginas_necesarias = (int)ceil((double)info_proceso->tamanio_bytes_archivo / configs->tamanio_pagina);
 	
+    pthread_mutex_lock(&mutex_frames_y_diccionario);
+
     if (contar_frames_libres_en_lista() < paginas_necesarias) {
 		log_error(logger, "No hay suficientes frames libres para el proceso %d. Necesarios: %d, Libres: %d", 
 				info_proceso->pid, paginas_necesarias, contar_frames_libres_en_lista());
@@ -465,40 +492,41 @@ char* guardar_proceso(t_info_nuevo_proceso* info_proceso){
     //Guardo en diccionario
     dictionary_put(dicc_pids_con_instrucciones, key_pid, value_proceso);
 
-    log_info(logger, "Se guardo el proceso %d en la memoria", info_proceso->pid);
+    //log_info(logger, "Se guardo el proceso %d en la memoria", info_proceso->pid);
 
     return "OK";
 }
 
 t_tabla_de_pagina* crear_arbol_de_paginacion_completo() {
-    uint32_t total_frames = configs->tamanio_memoria / configs->tamanio_pagina;
+    //log_info(logger, "Iniciando creación de estructura de paginación fija...");
+
     int cant_niveles = configs->cant_niveles;
     int entradas_por_tabla = configs->entradas_por_tabla;
 
-    // Calcular cuántas tablas se necesitan por nivel
-    t_list* cant_tablas_por_nivel = list_create();
-    double elementos_a_direccionar = total_frames;
-
-    for (int i = 0; i < cant_niveles; i++) {
-        uint32_t tablas_necesarias = (uint32_t)ceil(elementos_a_direccionar / entradas_por_tabla);
-        uint32_t* ptr_tablas = malloc(sizeof(uint32_t));
-        *ptr_tablas = tablas_necesarias;
-        list_add(cant_tablas_por_nivel, ptr_tablas);
-        elementos_a_direccionar = tablas_necesarias;
-    }
-
-    // Ahora cant_tablas_por_nivel contiene [cant_ultimo_nvl, cant_anteultimo_nvl, ..., cant_primer_nvl]
-    if (*((uint32_t*)list_get(cant_tablas_por_nivel, cant_niveles - 1)) > 1) {
-        log_error(logger, "Configuración inválida: se necesitaría más de una tabla de Nivel 1.");
-        list_destroy_and_destroy_elements(cant_tablas_por_nivel, free);
+    if (cant_niveles <= 0) {
+        log_error(logger, "Configuración inválida: CANTIDAD_NIVELES debe ser mayor a 0.");
         return NULL;
     }
 
-    // Crear todas las tablas para cada nivel
-    t_list* listas_de_tablas = list_create(); // Contendrá N listas, una por cada nivel
+    // Calculo la cantidad de tablas necesarias para cada nivel
+    // cant_tablas_por_nivel guarda la cantidad de tablas que se necesitan por cada nivel. 
+    //(en indice 0 guarda la cantidad de tablas del nivel 1, en indice 1 guarda las del nivel 2, etc)
+    t_list* cant_tablas_por_nivel = list_create();
+
+    int cant_actual = 1;
+    for (int i = 0; i < cant_niveles; i++) {
+        uint32_t* ptr_cant = malloc(sizeof(uint32_t));
+        *ptr_cant = cant_actual;
+        list_add(cant_tablas_por_nivel, ptr_cant);
+        cant_actual *= entradas_por_tabla; // Preparo la cantidad para el siguiente nivel
+    }
+
+    // Creo todas las instancias de las tablas
+    // listas_de_tablas es una lista que contiene N sub-listas, una para cada nivel
+    t_list* listas_de_tablas = list_create();
     for (int nivel = 1; nivel <= cant_niveles; nivel++) {
         t_list* tablas_del_nivel_actual = list_create();
-        uint32_t cantidad = *((uint32_t*)list_get(cant_tablas_por_nivel, cant_niveles - nivel));
+        uint32_t cantidad = *((uint32_t*)list_get(cant_tablas_por_nivel, nivel - 1));
         
         for (int i = 0; i < cantidad; i++) {
             list_add(tablas_del_nivel_actual, crear_tabla_de_nivel(nivel));
@@ -506,40 +534,48 @@ t_tabla_de_pagina* crear_arbol_de_paginacion_completo() {
         list_add(listas_de_tablas, tablas_del_nivel_actual);
     }
 
-    // Enlazar las tablas entre sí (de arriba hacia abajo) ---
-    for (int nivel_padre = 1; nivel_padre < cant_niveles; nivel_padre++) {
-        t_list* tablas_padre = list_get(listas_de_tablas, nivel_padre - 1);
-        t_list* tablas_hijo = list_get(listas_de_tablas, nivel_padre);
+    // Enlazo las tablas entre si
+    // Itero desde el nivel 2 hacia abajo.
+    for (int nivel_hijo = 2; nivel_hijo <= cant_niveles; nivel_hijo++) {
+        t_list* tablas_padre = list_get(listas_de_tablas, nivel_hijo - 2); // Nivel N-1 (inicialmente nivel 1, indice 0)
+        t_list* tablas_hijo = list_get(listas_de_tablas, nivel_hijo - 1);  // Nivel N
 
+        // Asigno cada tabla hija a su entrada padre correspondiente.
         for (int i = 0; i < list_size(tablas_hijo); i++) {
+            // Calculo a que padre y a que entrada pertenece esta tabla hija.
             int indice_tabla_padre = i / entradas_por_tabla;
             int indice_entrada_en_padre = i % entradas_por_tabla;
 
-            t_tabla_de_pagina* tabla_padre_actual = list_get(tablas_padre, indice_tabla_padre);
-            t_entrada* entrada_actual = list_get(tabla_padre_actual->entradas, indice_entrada_en_padre);
-            
-            entrada_actual->ptrTabla = list_get(tablas_hijo, i);
+            // Obtengo los punteros necesarios
+            t_tabla_de_pagina* tabla_hija_actual = list_get(tablas_hijo, i);
+            t_tabla_de_pagina* tabla_padre_correspondiente = list_get(tablas_padre, indice_tabla_padre);
+            t_entrada* entrada_a_enlazar = list_get(tabla_padre_correspondiente->entradas, indice_entrada_en_padre);
+
+            // Enlazamos
+            entrada_a_enlazar->ptrTabla = tabla_hija_actual;
         }
     }
 
-    // Limpieza y retorno de la raíz ---
-    t_tabla_de_pagina* raiz = list_get(list_get(listas_de_tablas, 0), 0);
+    t_tabla_de_pagina* tabla_nvl_1 = list_get(list_get(listas_de_tablas, 0), 0);
     
-    // Liberamos las listas contenedoras, pero no su contenido (las tablas y las listas de tablas)
+    // Libero la memoria
     list_destroy_and_destroy_elements(cant_tablas_por_nivel, free);
-    for(int i = 0; i < list_size(listas_de_tablas); i++){
+    for (int i = 0; i < list_size(listas_de_tablas); i++) {
         list_destroy(list_get(listas_de_tablas, i));
     }
     list_destroy(listas_de_tablas);
     
-    return raiz;
+    //log_info(logger, "Estructura de paginacion creada exitosamente con %d niveles y %d entradas por tabla.", 
+    //         cant_niveles, entradas_por_tabla);
+
+    return tabla_nvl_1;
 }
 
 void asignar_frames_a_proceso(t_value_proceso* value_proceso, int paginas_necesarias, uint32_t pid) {
     t_tabla_de_pagina* tabla_L1 = value_proceso->tabla_primer_nvl;
 
     for (int i = 0; i < paginas_necesarias; i++) {
-        // --- Cálculo dinámico de índices para N niveles ---
+        // Calculo indices para N niveles
         int indices[configs->cant_niveles];
         int pagina_logica_actual = i;
 
@@ -548,14 +584,14 @@ void asignar_frames_a_proceso(t_value_proceso* value_proceso, int paginas_necesa
             pagina_logica_actual = floor(pagina_logica_actual / configs->entradas_por_tabla);
         }
 
-        // --- Navegación dinámica del árbol ---
+        // Navego el arbol
         t_tabla_de_pagina* tabla_actual = tabla_L1;
         for (int nivel = 1; nivel < configs->cant_niveles; nivel++) {
             t_entrada* entrada_intermedia = list_get(tabla_actual->entradas, indices[nivel - 1]);
             tabla_actual = entrada_intermedia->ptrTabla;
         }
         
-        // --- Asignación en la tabla de último nivel ---
+        // Asigno en la tabla de último nivel
         t_entrada_ult_tabla* entrada_final = list_get(tabla_actual->entradas, indices[configs->cant_niveles - 1]);
         
         int frame_libre = encontrar_y_asignar_primer_frame_libre(pid, i);
@@ -591,7 +627,7 @@ int encontrar_y_asignar_primer_frame_libre(uint32_t pid, uint32_t nro_pagina) {
             frame_info->libre = false;
             frame_info->pid_proceso = pid;
             frame_info->nro_pagina = nro_pagina;
-            log_info(logger, "Frame %d asignado al PID: %d, Página: %d.", i, pid, nro_pagina);
+            //log_info(logger, "Frame %d asignado al PID: %d, Página: %d.", i, pid, nro_pagina);
             return i; // Retorna el índice del frame, que es su número
         }
     }
@@ -601,7 +637,7 @@ int encontrar_y_asignar_primer_frame_libre(uint32_t pid, uint32_t nro_pagina) {
 uint32_t contar_frames_libres_en_lista() {
     uint32_t contador = 0;
     
-    // Función closure para verificar si un frame está libre
+    // Función para verificar si un frame está libre
     bool esta_libre(void* elemento) {
         t_info_frame* frame = (t_info_frame*) elemento;
         return frame->libre;
@@ -641,7 +677,7 @@ void leer_lineas_archivo(FILE* archivo, t_list* instrucciones) {
     size_t len = 0; //tamanio buffer al q apunte linea
 
     while (getline(&linea, &len, archivo) != -1) { //getline lee linea (en la var linea) hasta el \n o devuelve -1(EOF).
-        linea[strcspn(linea, "\n")] = '\0'; //eliminamos el \n al final de la linea (si existe)
+        linea[strcspn(linea, "\n")] = '\0'; //reemplazo el \n al final de la linea por el \0
         list_add(instrucciones, strdup(linea)); //strdup es necesario para guardar la cadena en espacio dinamico
     }
     free(linea);
@@ -658,7 +694,8 @@ uint32_t recibir_proceso_dump(int conexion_kernel){
 	memcpy(pid_proceso, buffer, sizeof(uint32_t)); //recibo el pid
     uint32_t pid = *pid_proceso;
 
-    free(pid_proceso); 
+    free(pid_proceso);
+    free(buffer);
     return pid;
 }
 
@@ -729,7 +766,7 @@ t_recepcion_escritura* recibir_instruccion_escritura(int socket_cliente) {
     desplazamiento += sizeof(uint32_t);
     memcpy(&recepcion->tamanio, buffer + desplazamiento, sizeof(uint32_t)); //recibo el tamanio de la cadena
 
-	recepcion->datos = malloc(sizeof(recepcion->tamanio));
+	recepcion->datos = malloc(recepcion->tamanio);
 	desplazamiento += sizeof(uint32_t);
 	memcpy(recepcion->datos, buffer + desplazamiento, recepcion->tamanio); //recibo la cadena de datos
 

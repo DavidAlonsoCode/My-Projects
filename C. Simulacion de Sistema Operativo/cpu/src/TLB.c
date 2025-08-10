@@ -28,11 +28,12 @@ void* elegir_mas_antigua(void* entrada1, void* entrada2) {
 
 void agregar_bajo_fifo(t_entrada_tlb* nueva_entrada) {
 
+    // Si la TLB esta llena, se elimina la primera entrada de la lista (la mas antigua)
     if(list_size(tlb->entradas) >= cant_entradas_tlb) {
-        // Si la TLB esta llena, se elimina la primera entrada de la lista (la mas antigua)
         t_entrada_tlb* entrada_a_reemplazar = list_remove(tlb->entradas, 0);
         free(entrada_a_reemplazar);
     }
+    // De lo contrario, solo se agrega la entrada
     list_add(tlb->entradas, nueva_entrada);
 }
 
@@ -40,13 +41,15 @@ void agregar_bajo_lru(t_entrada_tlb* nueva_entrada) {
 
     nueva_entrada->tiempo_acceso  = obtenerTiempoAhora(); // Se asigna el uso más reciente (valor mas alto) a la nueva entrada
     
+    // Si la TLB esta llena, se elimina la entrada con el uso mas antiguo (valor más bajo con timestamp)
     if(list_size(tlb->entradas) >= cant_entradas_tlb) {
-        // Si la TLB esta llena, se elimina la entrada con el uso mas antiguo (valor más bajo)
+        
         // Se obtiene la que tenga el uso reciente mas bajo
         t_entrada_tlb* entrada_a_reemplazar = list_get_minimum(tlb->entradas, elegir_mas_antigua);
         // Para eliminar el elemento, se usa list_remove_element que devuelve true si lo pudo eliminar.
         if (list_remove_element(tlb->entradas, entrada_a_reemplazar)) free(entrada_a_reemplazar);
     }
+    // De lo contrario, solo agrega la entrada
     list_add(tlb->entradas, nueva_entrada);
 }
 
@@ -130,18 +133,18 @@ void vaciar_tlb() {
 
 void log_tlb(uint32_t pid, const char* momento) {
     if (tlb == NULL || list_is_empty(tlb->entradas)) {
-        log_info(logger, "PID: %d - DUMP TLB (%s): La TLB está vacía.", pid, momento);
+        log_debug(logger, "PID: %d - DUMP TLB (%s): La TLB está vacía.", pid, momento);
         return;
     }
 
-    log_info(logger, "--- Inicio DUMP TLB para PID: %d (%s) ---", pid, momento);
+    log_debug(logger, "--- Inicio DUMP TLB para PID: %d (%s) ---", pid, momento);
     int cantidad_entradas = list_size(tlb->entradas);
 
     for (int i = 0; i < cantidad_entradas; i++) {
         t_entrada_tlb* entrada = (t_entrada_tlb*)list_get(tlb->entradas, i);
         if (entrada != NULL) {
-            log_info(logger, "  [TLB] Entrada %d: | Pagina: %-5u | Frame: %-5u", i, entrada->pagina, entrada->frame);
+            log_debug(logger, "  [TLB] Entrada %d: | Pagina: %-5u | Frame: %-5u", i, entrada->pagina, entrada->frame);
         }
     }
-    log_info(logger, "--- Fin DUMP TLB ---");
+    log_debug(logger, "--- Fin DUMP TLB ---");
 }

@@ -8,14 +8,20 @@ int main(int argc, char* argv[]) {
 	char* ip;
 	char* puerto;
 	char* dispositivo_io_conectado = argv[1];
-	
-	logger = iniciar_logger("io.log", "IO_LOGGER");
-	t_config* config = iniciar_config("./io.config");
-	
-	log_info(logger, "El logger se inició correctamente");
+	char* nivel_log;
+	char* rutaConfig = argv[2];
+
+	t_config* config = iniciar_config(rutaConfig);
 
 	ip = config_get_string_value(config, "IP_KERNEL");
 	puerto = config_get_string_value(config, "PUERTO_KERNEL");	
+	nivel_log = config_get_string_value(config,"LOG_LEVEL");
+	
+	logger = iniciar_logger("io.log", "IO_LOGGER",nivel_log);
+
+	
+	log_info(logger, "El logger se inició correctamente");
+
 
 	log_info(logger, "Dispositivo conectado: %s", dispositivo_io_conectado);
 	

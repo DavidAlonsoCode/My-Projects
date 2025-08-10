@@ -21,19 +21,23 @@ extern t_list * listaBlocked;
 extern t_list * listaSuspReady;
 extern uint32_t pid;
 extern pthread_mutex_t MUTEX_COLA_READY;
-extern pthread_mutex_t MUTEX_COLA_NEW;
+extern pthread_mutex_t MUTEX_NEW;
 extern pthread_mutex_t MUTEX_EXEC;
 extern pthread_mutex_t MUTEX_LISTA_CPUS;
 extern pthread_mutex_t MUTEX_PID;
 extern pthread_mutex_t MUTEX_BLOCKED;
 extern pthread_mutex_t MUTEX_COLA_PIDS_PROCESOS_ESPERA;
+extern pthread_mutex_t MUTEX_SUSPD_BLOCKED;
+extern pthread_mutex_t MUTEX_SUSPD_READY;
 extern sem_t sem_nuevo_proceso;
 extern sem_t sem_ready;
 extern sem_t sem_cpu_libre; 
+extern sem_t sem_inicio_planificador;
 extern t_list* lista_dispositivos_io;
 extern t_list* lista_cpus;
 extern t_list* lista_procesos_espera_entrada_salida;
 extern bool Ingresar_tiempo;
+extern t_list *listaSuspBlocked;
 typedef struct {
 	char* algoritmo_largo_plazo;
 	char* algoritmo_corto_plazo;
@@ -41,6 +45,8 @@ typedef struct {
 	char* puerto_memoria;
 	double alfa;
 	uint64_t estimadorInicial;
+	double tiempo_suspension;
+	char* nombreArchivo;
 }datos_para_planificador;
 extern datos_para_planificador*datos_planificador; 
 
@@ -51,12 +57,11 @@ typedef struct {
 	t_queue* pids; //tendra los pids que esperan a tal dispositivo
 } procesos_espera_entrada_salida;
 
-typedef struct{
-	uint32_t pid;
-	int conexion_memoria;
-}espera_dump_t;
-//en caso de que se quede en espera y bloque el hilo de ese cpu
 
+typedef struct {
+    uint32_t cantidadDeVeces;
+    uint32_t pid_timer;
+} datos_timer_t;
 
 void llenarDatosParaThread(t_datos_thread_servidor* datos,t_config* config,char* puerto,char* nombreServidor,char* tipoDePuerto);
 
@@ -70,12 +75,12 @@ void planificador_corto_plazo();
 void iniciar_semaforos();
 void finalizar_semaforos();
 cpu_datos* seleccionar_cpu_libre();
-dispositivo_io* seleccionar_io_libre(char* dispositivo);
+dispositivo_io* seleccionar_io(char* dispositivo);
 
 void enviar_proceso_a_cpu(cpu_datos* cpu,pcb* proceso);
 void marcar_cpu_ocupada(cpu_datos* cpu);
 
-char* validarConMemoria(char* ,uint32_t ,uint32_t ,char* ,char* );
+char* validarConMemoria(char* ,uint32_t ,uint32_t ,char* ,char* ,int);
 void actualizar_metrica(pcb* pcb,int estado);
 
 
@@ -145,7 +150,7 @@ void push_cola_pids_procesos_espera(t_queue* pids,uint32_t pid);
 
 dispositivo_io* encontrar_io_por_fd_conexion(int fd_conexion);
 
-void proceso_blocked_a_ready(uint32_t pid);
+void proceso_blocked_a_ready(uint32_t pid,bool);
 
 void actualizar_pc_en_lista(uint32_t pid, uint32_t nuevo_pc, pthread_mutex_t* mutex, t_list* lista);
 
@@ -155,11 +160,11 @@ void esperar_enter();
 
 pcb * obtener_pcb_lista(t_list *, pthread_mutex_t * mutex);
 
+pcb* obtener_pcb_lista_segun_pid(t_list* lista, pthread_mutex_t * mutex,uint32_t pid);
+
 void remover_pcb_de_lista(pcb* proceso,t_list* lista,pthread_mutex_t* mutex);
 
-
 void  crear_proceso(char* proceso_pseudocodigo,uint32_t tamanio_proceso);
-
 
 
 bool hayProcesosEnEspera(t_queue * pids);
@@ -169,7 +174,6 @@ void libero_procesos_en_espera(procesos_espera_entrada_salida* procesoEntrada);
 uint32_t cantidadPids(t_queue * pids);
 
 bool hayElementosEnLista(t_list* lista, pthread_mutex_t* mutex);
-
 
 bool comparacionEsMasChicoTamanioBytes(void* a, void* b);
 
@@ -181,13 +185,46 @@ void actualizar_tiempo(pcb *pcb, int estado);
 
 bool comparacionRafagaMasChica(void* a, void* b);
 
-bool estaLibre(void* ptr) ;
+bool estaOcupada(void* ptr) ;
 
-bool cpuLibres();
+bool cpuOcupadas();
 
 void lanzarInterrupcion(cpu_datos* cpu,pcb* proceso);
 
 void agregar_pcb_a_lista(pcb *pcb_proceso,t_list* lista,pthread_mutex_t * mutex,uint32_t estado);
+
+void  enviar_suspension_memoria(uint32_t pid);
+
+void iniciar_timer_bloqueo(void* arg);
+
+void  enviar_suspension_memoria(uint32_t pid);
+
+void desuspender_proceso_memoria(int conexion,uint32_t pid);
+
+procesos_espera_entrada_salida *encontrar_proceso_en_espera_tiempo(char *dispositivo,uint32_t tiempo);
+
+procesos_espera_entrada_salida *encontrar_proceso_en_espera_sin_mutex(char *dispositivo);
+
+
+pcb* obtener_pcb_lista_segun_pid_sin_mutex(t_list* lista,uint32_t pid);
+
+pcb *sacar_proceso_de_lista_sin_mutex(uint32_t pid, t_list *listaASacar);
+
+void sacoProcesosEnEspera(dispositivo_io * dispositivoEncontrado);
+
+void  finalizar_procesos(dispositivo_io* dispositivoEncontrado);
+
+pcb* obtener_pcb_lista_sin_mutex(t_list* lista);
+
+
+void agregarProcesoLargoPlazo(t_list* lista,int estado,pcb* pcb_proceso);
+
+void algoritmo_FIFO_SJF_SRT(pcb* pcb_proceso);
+
+
+cpu_datos *buscar_cpu_por_conexion_DISPATCH_INTERRUPT(int conexion);
+
+
 
 
 #endif

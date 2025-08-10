@@ -1,16 +1,18 @@
 #include <utils/hello.h>
 #include <auxiliaresMemoria.h>
 #include <liberarRecursosMemoria.h>
+#include "swap.h"
 
 t_dictionary* dicc_pids_con_instrucciones;
 void* memoria_usuario;
 memoria_configs* configs;
 t_list* lista_frames;
+t_list* lista_bloques_swap;
+int fd_swap;
 
-pthread_mutex_t mutex_diccionario_instrucciones;
 pthread_mutex_t mutex_frames_y_diccionario;
-pthread_mutex_t mutex_frames;
-pthread_mutex_t mutex_memoria_usuario;
+pthread_mutex_t mutex_bloques;
+pthread_mutex_t mutex_fd_swap;
 
 int main(int argc, char* argv[]){
     saludar("memoria");
@@ -18,22 +20,31 @@ int main(int argc, char* argv[]){
 	//Inicializo el diccionario para guardar los pids y las instrucciones
 	dicc_pids_con_instrucciones = dictionary_create();
 	
-	// Inicializo el mutex
-	pthread_mutex_init(&mutex_diccionario_instrucciones, NULL);
-	pthread_mutex_init(&mutex_frames_y_diccionario, NULL);
-	pthread_mutex_init(&mutex_frames, NULL);
-	pthread_mutex_init(&mutex_memoria_usuario, NULL);
+	
 
-	// Inicializo logger
-    logger = iniciar_logger("memoria.log","MEMORIA_LOGGER");
-	log_info(logger, "Hola soy el server de memoria");
-    
+	// Inicializo el mutex
+	pthread_mutex_init(&mutex_frames_y_diccionario, NULL);
+	pthread_mutex_init(&mutex_bloques,NULL);
+	pthread_mutex_init(&mutex_fd_swap,NULL);
+
 	//Inicializo config
+	t_config* ip_config;
 	t_config* config;
-    config = iniciar_config("./memoria.config");
+	char* rutaConfig = argv[1];
+	ip_config = iniciar_config("./ip.config");
+    config = iniciar_config(rutaConfig);
+
+	
+
 	
     //Obtengo valores del config (sin LOG_LEVEL)
-	guardar_configs(config);
+	guardar_configs(config, ip_config);
+	char* log_level= config_get_string_value(config, "LOG_LEVEL");
+
+	// Inicializo logger
+    logger = iniciar_logger("memoria.log","MEMORIA_LOGGER",log_level);
+	log_info(logger, "Hola soy el server de memoria");
+    
 
 	// inicio memoria de usuario
 	memoria_usuario = calloc(1, configs->tamanio_memoria);
@@ -49,6 +60,8 @@ int main(int argc, char* argv[]){
 		info_frame->nro_pagina = 0;
 		list_add(lista_frames, info_frame);
 	}
+
+	iniciar_swap();
 
 	// Levanto sevidor
 	int server_fd = iniciar_servidor(configs->puertoEscucha,"memoria");
@@ -72,23 +85,27 @@ int main(int argc, char* argv[]){
 	}
 
 	log_destroy(logger);
+	config_destroy(ip_config);
 	config_destroy(config);
 	destruir_diccionario_instrucciones();
-	pthread_mutex_destroy(&mutex_diccionario_instrucciones);
-	pthread_mutex_destroy(&mutex_frames);
+	pthread_mutex_destroy(&mutex_bloques);
+	pthread_mutex_destroy(&mutex_fd_swap);
+	pthread_mutex_destroy(&mutex_frames_y_diccionario);
     destruir_lista_frames(lista_frames);
+	list_destroy_and_destroy_elements(lista_bloques_swap,free);
+	close(fd_swap);
     free(memoria_usuario);
     free(configs);
 
 	return EXIT_SUCCESS;
 }
 
-void guardar_configs(t_config* config) {
+void guardar_configs(t_config* config, t_config* ip_config) {
 	// Reservamos memoria para la estructura de configuración
 	configs = malloc(sizeof(memoria_configs));
 	
 	// Asignamos los valores desde el config a la estructura global
-	configs->puertoEscucha = config_get_string_value(config, "PUERTO_ESCUCHA");
+	configs->puertoEscucha = config_get_string_value(ip_config, "PUERTO_ESCUCHA");
 	configs->tamanio_memoria = config_get_int_value(config, "TAM_MEMORIA");
 	configs->tamanio_pagina = config_get_int_value(config, "TAM_PAGINA");
 	configs->entradas_por_tabla = config_get_int_value(config, "ENTRADAS_POR_TABLA");
