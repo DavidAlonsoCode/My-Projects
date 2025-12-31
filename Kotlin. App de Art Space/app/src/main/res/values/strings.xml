@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">FotitosCopadas</string>
+    <string name="titulo_bahia_de_halong">Bahia de Halong</string>
+    <string name="descrip_bahia_de_halong">Es un paisaje místico en el norte de Vietnam, famoso por sus más de 1,600 islas e islotes de piedra caliza que emergen de aguas color esmeralda.</string>
+    <string name="titulo_isla_jeju">Isla Jeju</string>
+    <string name="descrip_isla_jeju">Es una joya volcánica en el estrecho de Corea, famosa por sus acantilados de basalto negro que contrastan con el mar azul intenso.</string>
+    <string name="titulo_isla_de_comodo">Isla de Komodo</string>
+    <string name="descrip_isla_de_comodo">Es un santuario de indonesia,tiene un paisaje de colinas escarpadas con playas únicas de arena rosa y aguas cristalinas.</string>
+    <string name="titulo_table_mountain">Table Mountain</string>
+    <string name="descrip_table_mountain">Es una montaña ubicada en Ciudad del Cabo (Sudáfrica), famosa por su cima plana, lo que le concede su nombre. Tiene más de 200 millones de años. Y tiene más de 1.470 especies de plantas.</string>
+    <string name="titulo_mi_novia">Mi novia</string>
+    <string name="descrip_mi_novia">Es un paisaje radiante en mi vida, famosa por sus ojos color verde que brillan como dos faros, tiene cabello color marron claro de aproximadamente 35cm que cae como una cascada de seda. En su rostro de rasgos hiper-atractivos se destaca una sonrisa capaz de detener el cronos, tiene el poder de hacerme sentir maravillado al verla.</string>
+</resources>
